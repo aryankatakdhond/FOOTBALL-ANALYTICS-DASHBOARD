@@ -377,7 +377,7 @@ def render_player_analysis(df: pd.DataFrame) -> None:
         st.plotly_chart(fig_ga, use_container_width=True)
 
     with col_right:
-        # Shots vs Goals scatter with trendline
+        # Shots vs Goals scatter with NumPy trendline (no statsmodels needed)
         st.markdown("### Shots vs Goals")
         shots_df = df.groupby(
             ["player_name", "team"], as_index=False
@@ -389,16 +389,26 @@ def render_player_analysis(df: pd.DataFrame) -> None:
             y="goals",
             color="team",
             hover_data=["player_name"],
-            trendline="ols",
             template=PLOTLY_TEMPLATE,
             labels={"shots": "Shots", "goals": "Goals", "team": "Team"},
         )
-        # Style trendline
-        for trace in fig_sg.data:
-            if trace.mode == "lines":
-                trace.line.color = "#ffffff"
-                trace.line.width = 1.5
-                trace.line.dash = "dash"
+
+        # Manual OLS trendline via NumPy (no statsmodels dependency)
+        x_vals = shots_df["shots"].to_numpy(dtype=float)
+        y_vals = shots_df["goals"].to_numpy(dtype=float)
+        if len(x_vals) >= 2:
+            m, b = np.polyfit(x_vals, y_vals, 1)
+            x_line = np.array([x_vals.min(), x_vals.max()])
+            y_line = m * x_line + b
+            fig_sg.add_trace(go.Scatter(
+                x=x_line,
+                y=y_line,
+                mode="lines",
+                name="Trend",
+                line=dict(color="#ffffff", width=1.5, dash="dash"),
+                hoverinfo="skip",
+            ))
+
         fig_sg = _chart_layout(fig_sg, "🎯 Shots vs Goals (with trendline)")
         st.plotly_chart(fig_sg, use_container_width=True)
 
